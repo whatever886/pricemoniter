@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"kbfood/internal/domain/entity"
@@ -93,12 +94,36 @@ func (h *UserHandler) GetSettings(c echo.Context) error {
 // normalizeBarkKey extracts device key from full URL or returns key as-is
 func normalizeBarkKey(input string) string {
 	input = strings.TrimSpace(input)
-	// If full URL, extract last segment as device key
-	if strings.HasPrefix(input, "http") {
-		parts := strings.Split(input, "/")
-		if len(parts) > 0 {
-			return parts[len(parts)-1]
+	if input == "" {
+		return ""
+	}
+
+	// If full URL, extract the last non-empty path segment as device key.
+	if strings.HasPrefix(strings.ToLower(input), "http") {
+		parsed, err := url.Parse(input)
+		if err == nil {
+			path := strings.Trim(parsed.Path, "/")
+			if path == "" {
+				return ""
+			}
+
+			parts := strings.Split(path, "/")
+			for i := len(parts) - 1; i >= 0; i-- {
+				if seg := strings.TrimSpace(parts[i]); seg != "" {
+					return seg
+				}
+			}
+			return ""
 		}
+
+		trimmed := strings.Trim(input, "/")
+		parts := strings.Split(trimmed, "/")
+		for i := len(parts) - 1; i >= 0; i-- {
+			if seg := strings.TrimSpace(parts[i]); seg != "" {
+				return seg
+			}
+		}
+		return ""
 	}
 	return input
 }
