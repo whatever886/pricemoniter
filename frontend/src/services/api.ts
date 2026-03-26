@@ -77,9 +77,31 @@ api.interceptors.response.use(
 // Normalize Bark key - extract device key from URL if needed
 function normalizeBarkKey(input: string): string {
   const trimmed = input.trim();
-  if (trimmed.startsWith("http")) {
-    const parts = trimmed.split("/");
-    return parts[parts.length - 1] || trimmed;
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.toLowerCase().startsWith("http")) {
+    try {
+      const parsed = new URL(trimmed);
+      const path = parsed.pathname.replace(/^\/+|\/+$/g, "");
+      if (!path) return "";
+      const parts = path.split("/");
+
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const seg = parts[i].trim();
+        if (seg) return seg;
+      }
+      return "";
+    } catch {
+      const fallback = trimmed.replace(/^\/+|\/+$/g, "");
+      const parts = fallback.split("/");
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const seg = parts[i].trim();
+        if (seg) return seg;
+      }
+      return "";
+    }
   }
   return trimmed;
 }
