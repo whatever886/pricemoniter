@@ -84,15 +84,13 @@ func (h *ProductHandler) QueryProducts(c echo.Context) error {
 		notificationMap = make(map[string]*entity.NotificationConfig)
 	}
 
-	// Fetch master products with platform and region filters
+	// Fetch master products with platform filter only.
+	// Region filtering is applied later with normalized matching to avoid
+	// missing products when stored values have variants like "长沙市".
 	var masterProducts []*entity.MasterProduct
 	var err error
 
-	if region != "" && platform != "" {
-		masterProducts, err = h.masterRepo.FindByRegionAndPlatform(ctx, region, platform)
-	} else if region != "" {
-		masterProducts, err = h.masterRepo.FindByRegion(ctx, region)
-	} else if platform != "" {
+	if platform != "" {
 		masterProducts, err = h.masterRepo.FindByPlatform(ctx, platform)
 	} else {
 		masterProducts, err = h.masterRepo.ListAll(ctx)
@@ -105,6 +103,11 @@ func (h *ProductHandler) QueryProducts(c echo.Context) error {
 	// Apply filters
 	filtered := make([]*entity.MasterProduct, 0)
 	for _, p := range masterProducts {
+		// Filter by region using normalized fuzzy match for better compatibility.
+		if region != "" && !matchesRegion(p.Region, region) {
+			continue
+		}
+
 		// Skip blocked products
 		if blockedSet[p.ID] {
 			continue
@@ -153,6 +156,32 @@ func containsIgnoreCase(s, substr string) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+func matchesRegion(actualRegion, selectedRegion string) bool {
+	actual := normalizeRegion(actualRegion)
+	selected := normalizeRegion(selectedRegion)
+	if selected == "" {
+		return true
+	}
+	if actual == selected {
+		return true
+	}
+
+	// Allow common variants, e.g. "长沙" <-> "长沙市".
+	return strings.Contains(actual, selected) || strings.Contains(selected, actual)
+}
+
+func normalizeRegion(region string) string {
+	r := strings.TrimSpace(strings.ToLower(region))
+	replacer := strings.NewReplacer(
+		"省", "",
+		"市", "",
+		"自治区", "",
+		"特别行政区", "",
+		" ", "",
+	)
+	return replacer.Replace(r)
 }
 
 // GetPriceTrend handles GET /api/products/:activityId/trend
