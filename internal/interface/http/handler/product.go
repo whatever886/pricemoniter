@@ -278,8 +278,24 @@ func (h *ProductHandler) ClearPlatform(c echo.Context) error {
 	ctx := c.Request().Context()
 	platform := c.Param("platform")
 
+	// Clear raw product records.
 	if err := h.prodRepo.DeleteByPlatform(ctx, platform); err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.Error(500, "Failed to clear platform data"))
+	}
+
+	// Clear master products as product list API reads from master_product.
+	masters, err := h.masterRepo.FindByPlatform(ctx, platform)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, dto.Error(500, "Failed to clear master platform data"))
+	}
+
+	for _, master := range masters {
+		if master == nil {
+			continue
+		}
+		if err := h.masterRepo.Delete(ctx, master.ID); err != nil {
+			return c.JSON(http.StatusInternalServerError, dto.Error(500, "Failed to clear master platform data"))
+		}
 	}
 
 	return c.JSON(http.StatusOK, dto.Success(nil))
