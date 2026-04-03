@@ -207,7 +207,8 @@ func (s *DataCleaningService) PromoteCandidates(
 			continue
 		}
 
-		uniqueID := s.titleCleaner.GenerateID("DT", winnerTitle)
+		// Include region in ID seed to avoid cross-region collisions for same title.
+		uniqueID := s.titleCleaner.GenerateID("DT", candidate.Region+"_"+winnerTitle)
 
 		// Check if master already exists
 		master, err := s.masterRepo.FindByID(ctx, uniqueID)
