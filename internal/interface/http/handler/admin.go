@@ -57,7 +57,7 @@ func (h *SyncHandler) TestAPI(c echo.Context) error {
 	ctx := c.Request().Context()
 	region := c.QueryParam("region")
 	if region == "" {
-		region = "广州"
+		region = "长沙"
 	}
 
 	// Get region config for coords
