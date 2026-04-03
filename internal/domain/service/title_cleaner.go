@@ -16,7 +16,7 @@ const (
 	// SimilarityThreshold for title matching
 	SimilarityThreshold = 0.75
 	// PromotionThreshold for candidate promotion
-	PromotionThreshold = 3
+	PromotionThreshold = 1
 	// MidSimilarityThreshold for title + price matching
 	MidSimilarityThreshold = 0.5
 	// PriceMatchThreshold in yuan

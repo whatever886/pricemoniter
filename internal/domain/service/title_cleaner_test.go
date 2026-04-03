@@ -220,11 +220,11 @@ func TestTitleCleaner_IsPriceMatch(t *testing.T) {
 func TestTitleCleaner_ShouldPromote(t *testing.T) {
 	tc := NewTitleCleaner()
 
-	if !tc.ShouldPromote(3) {
+	if !tc.ShouldPromote(1) {
 		t.Error("occurrences >= threshold should promote")
 	}
 
-	if tc.ShouldPromote(2) {
+	if tc.ShouldPromote(0) {
 		t.Error("occurrences < threshold should not promote")
 	}
 }
