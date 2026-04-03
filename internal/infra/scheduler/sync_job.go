@@ -100,7 +100,9 @@ func (j *SyncJob) Run(ctx context.Context) error {
 
 			// Convert PlatformProductDTO to DTInputDTO for processing
 			input := &entity.DTInputDTO{
+				ActivityID: p.ActivityID,
 				Title:     p.Title,
+				ShopName:  p.ShopName,
 				Price:     p.CurrentPrice,
 				Status:    p.SalesStatus,
 				CrawlTime: p.ActivityCreateTime.Unix(),
@@ -122,6 +124,13 @@ func (j *SyncJob) Run(ctx context.Context) error {
 	log.Info().
 		Int("totalProducts", totalProducts).
 		Msg("Sync job completed")
+
+	if _, err := j.cleaningService.PromoteCandidates(ctx); err != nil {
+		log.Error().Err(err).Msg("Failed to promote candidates after sync")
+		if lastErr == nil {
+			lastErr = err
+		}
+	}
 
 	// Record sync status
 	j.recordStatus(ctx, startTime, totalProducts, lastErr)
