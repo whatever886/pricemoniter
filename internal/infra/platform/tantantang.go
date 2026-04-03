@@ -162,7 +162,7 @@ func (c *TanTanTangClient) fetchPage(ctx context.Context, region string, page in
 	var resp APIResponse
 	apiResp, err := c.client.R().
 		SetContext(ctx).
-		SetHeader("token", "").
+		SetHeader("token", c.cfg.Token).
 		SetHeader("Host", "ttt.bjlxkjyxgs.cn").
 		SetHeader("xweb_xhr", "1").
 		SetHeader("sec-fetch-site", "cross-site").
@@ -172,7 +172,7 @@ func (c *TanTanTangClient) fetchPage(ctx context.Context, region string, page in
 		SetHeader("accept-language", "zh-CN,zh;q=0.9").
 		SetBody(body).
 		SetResult(&resp).
-		SetDebug(true).
+		SetDebug(false).
 		Post(c.cfg.BaseURL)
 
 	if err != nil {

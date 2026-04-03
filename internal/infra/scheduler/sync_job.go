@@ -55,7 +55,7 @@ func (j *SyncJob) Run(ctx context.Context) error {
 		return fmt.Errorf("cleaningService not initialized")
 	}
 
-	regions := []string{"广州", "佛山"}
+	regions := []string{"长沙", "东莞"}
 
 	totalProducts := 0
 	var lastErr error

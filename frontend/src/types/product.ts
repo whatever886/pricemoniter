@@ -40,8 +40,8 @@ export const PLATFORMS = [
 // Region options for filter dropdown
 export const REGIONS = [
   { value: '', label: '所有地区' },
-  { value: '广州', label: '广州' },
-  { value: '佛山', label: '佛山' },
+  { value: '长沙', label: '长沙' },
+  { value: '东莞', label: '东莞' },
 ] as const;
 
 // Sales status options for filter dropdown
