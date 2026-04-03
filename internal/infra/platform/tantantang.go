@@ -232,7 +232,7 @@ func (c *TanTanTangClient) fetchPage(ctx context.Context, region string, page in
 		return nil, false, fmt.Errorf("api error [%s]: code=%d, msg=%s", errorType, resp.Code, resp.Msg)
 	}
 
-	products := c.parseProducts(resp.Data.Data)
+	products := c.parseProducts(resp.Data.Data, region)
 	log.Debug().
 		Int("productsParsed", len(products)).
 		Msg("Parsed products")
@@ -267,7 +267,7 @@ func (c *TanTanTangClient) generateSign(page int, city string) string {
 }
 
 // parseProducts parses API response into products
-func (c *TanTanTangClient) parseProducts(items []ProductItem) []*entity.PlatformProductDTO {
+func (c *TanTanTangClient) parseProducts(items []ProductItem, region string) []*entity.PlatformProductDTO {
 	products := make([]*entity.PlatformProductDTO, 0, len(items))
 
 	for _, item := range items {
@@ -278,7 +278,7 @@ func (c *TanTanTangClient) parseProducts(items []ProductItem) []*entity.Platform
 		products = append(products, &entity.PlatformProductDTO{
 			ActivityID:         strconv.FormatInt(item.ActivityID, 10),
 			Platform:           c.Name(),
-			Region:             "",
+			Region:             region,
 			Title:              item.Title,
 			ShopName:           item.ShopName,
 			OriginalPrice:      originalPrice,
