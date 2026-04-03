@@ -36,7 +36,9 @@ type PlatformProductDTO struct {
 
 // DTInputDTO represents an input from DT platform
 type DTInputDTO struct {
+	ActivityID string
 	Title     string
+	ShopName  string
 	Price     float64
 	Status    int
 	CrawlTime int64

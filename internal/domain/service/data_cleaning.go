@@ -54,6 +54,25 @@ func (s *DataCleaningService) ProcessIncomingItem(
 
 	rawTitle := item.Title
 	cleanKey := s.titleCleaner.CleanTitleForID(rawTitle)
+	if item.ActivityID != "" {
+		cleanKey = item.ActivityID + "_" + s.titleCleaner.CleanTitleForID(rawTitle) + "_" + s.titleCleaner.CleanTitleForID(item.ShopName)
+		masterID := s.titleCleaner.GenerateID("DT", region+"_"+cleanKey)
+		master, err := s.masterRepo.FindByID(ctx, masterID)
+		if err != nil {
+			return nil, fmt.Errorf("find master by activity id: %w", err)
+		}
+		if master != nil {
+			return s.handleMasterMatch(ctx, master, item.Price, item.Status)
+		}
+
+		// For platform records with stable activity_id, skip fuzzy title matching
+		// to prevent different products from being merged into one master.
+		if err := s.handleCandidateLogic(ctx, region, rawTitle, cleanKey, item); err != nil {
+			return nil, fmt.Errorf("handle candidate: %w", err)
+		}
+
+		return nil, nil
+	}
 
 	// Try to match with existing master products
 	masters, err := s.masterRepo.FindByRegion(ctx, region)
@@ -151,7 +170,8 @@ func (s *DataCleaningService) handleCandidateLogic(
 			continue
 		}
 
-		if s.titleCleaner.IsHighSimilarity(cleanKey, candidate.GroupKey) {
+		// Use exact clean key match to avoid merging distinct products with similar titles.
+		if cleanKey == candidate.GroupKey {
 			// Update existing candidate
 			candidate.AddTitleVote(rawTitle)
 			candidate.UpdateLastSeen(item.Price, item.Status)
@@ -207,8 +227,8 @@ func (s *DataCleaningService) PromoteCandidates(
 			continue
 		}
 
-		// Include region in ID seed to avoid cross-region collisions for same title.
-		uniqueID := s.titleCleaner.GenerateID("DT", candidate.Region+"_"+winnerTitle)
+		// Use region + group key for stable uniqueness. Group key may be activity_id.
+		uniqueID := s.titleCleaner.GenerateID("DT", candidate.Region+"_"+candidate.GroupKey)
 
 		// Check if master already exists
 		master, err := s.masterRepo.FindByID(ctx, uniqueID)
