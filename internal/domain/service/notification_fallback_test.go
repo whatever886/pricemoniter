@@ -190,15 +190,18 @@ func TestNotificationService_CheckAndNotifyFallsBackToMasterProduct(t *testing.T
 	userSettingsRepo := &stubUserSettingsRepository{
 		settings: &entity.UserSettings{
 			UserID:  "client-123",
-			BarkKey: "https://api.day.app/DEVICE123/?isArchive=1",
+			BarkKey: "https://ntfy.sh/DEVICE123/?isArchive=1",
 		},
 	}
 
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
-		if !strings.Contains(r.URL.Path, "/DEVICE123/") {
-			t.Fatalf("expected normalized Bark key in request path, got %s", r.URL.Path)
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST request, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/DEVICE123") {
+			t.Fatalf("expected normalized ntfy topic in request path, got %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -246,7 +249,7 @@ func TestNotificationService_CheckAndNotifyOnlyNotifiesOncePerDay(t *testing.T) 
 	userSettingsRepo := &stubUserSettingsRepository{
 		settings: &entity.UserSettings{
 			UserID:  "client-123",
-			BarkKey: "https://api.day.app/DEVICE123/",
+			BarkKey: "https://ntfy.sh/DEVICE123/",
 		},
 	}
 
@@ -267,6 +270,6 @@ func TestNotificationService_CheckAndNotifyOnlyNotifiesOncePerDay(t *testing.T) 
 	}
 
 	if requestCount != 1 {
-		t.Fatalf("expected only 1 Bark request in a single day, got %d", requestCount)
+		t.Fatalf("expected only 1 ntfy request in a single day, got %d", requestCount)
 	}
 }

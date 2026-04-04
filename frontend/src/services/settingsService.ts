@@ -1,7 +1,8 @@
-const BARK_KEY_STORAGE_KEY = "barkKey";
+const NTFY_TOPIC_STORAGE_KEY = "ntfyTopic";
+const LEGACY_BARK_KEY_STORAGE_KEY = "barkKey";
 const CLIENT_ID_STORAGE_KEY = "clientId";
 
-function normalizeBarkKey(input: string): string {
+function normalizeNtfyTopic(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) {
     return "";
@@ -46,25 +47,33 @@ function createClientId(): string {
 }
 
 export const settingsService = {
-  // Get Bark key from localStorage
-  getBarkKey: (): string => {
-    return localStorage.getItem(BARK_KEY_STORAGE_KEY) || "";
+  // Get ntfy topic from localStorage
+  getNtfyTopic: (): string => {
+    return (
+      localStorage.getItem(NTFY_TOPIC_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_BARK_KEY_STORAGE_KEY) ||
+      ""
+    );
   },
 
-  // Save Bark key to localStorage
-  setBarkKey: (key: string): void => {
-    const normalizedKey = normalizeBarkKey(key);
+  // Save ntfy topic to localStorage
+  setNtfyTopic: (topic: string): void => {
+    const normalizedTopic = normalizeNtfyTopic(topic);
 
-    if (normalizedKey) {
-      localStorage.setItem(BARK_KEY_STORAGE_KEY, normalizedKey);
+    if (normalizedTopic) {
+      localStorage.setItem(NTFY_TOPIC_STORAGE_KEY, normalizedTopic);
+      // Keep legacy key for compatibility with existing E2E fixtures.
+      localStorage.setItem(LEGACY_BARK_KEY_STORAGE_KEY, normalizedTopic);
     } else {
-      localStorage.removeItem(BARK_KEY_STORAGE_KEY);
+      localStorage.removeItem(NTFY_TOPIC_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_BARK_KEY_STORAGE_KEY);
     }
   },
 
-  // Clear Bark key from localStorage
-  clearBarkKey: (): void => {
-    localStorage.removeItem(BARK_KEY_STORAGE_KEY);
+  // Clear ntfy topic from localStorage
+  clearNtfyTopic: (): void => {
+    localStorage.removeItem(NTFY_TOPIC_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_BARK_KEY_STORAGE_KEY);
   },
 
   // Get the stable client ID from localStorage
@@ -89,14 +98,28 @@ export const settingsService = {
     localStorage.removeItem(CLIENT_ID_STORAGE_KEY);
   },
 
-  // Get the legacy Bark-key-based user ID for one-time backend migration
+  // Get the legacy bark-key-based user ID for one-time backend migration
   getLegacyUserId: (): string => {
-    const barkKey = localStorage.getItem(BARK_KEY_STORAGE_KEY) || "";
-    return normalizeBarkKey(barkKey);
+    const legacyKey = localStorage.getItem(LEGACY_BARK_KEY_STORAGE_KEY) || "";
+    return normalizeNtfyTopic(legacyKey);
   },
 
-  // Normalize Bark key for reuse across services
+  // Normalize ntfy topic for reuse across services
+  normalizeNtfyTopic: (input: string): string => {
+    return normalizeNtfyTopic(input);
+  },
+
+  // Backward-compatible aliases used by existing components/tests.
+  getBarkKey: (): string => {
+    return settingsService.getNtfyTopic();
+  },
+  setBarkKey: (key: string): void => {
+    settingsService.setNtfyTopic(key);
+  },
+  clearBarkKey: (): void => {
+    settingsService.clearNtfyTopic();
+  },
   normalizeBarkKey: (input: string): string => {
-    return normalizeBarkKey(input);
+    return normalizeNtfyTopic(input);
   },
 };

@@ -22,7 +22,7 @@ interface WelcomeModalProps {
 }
 
 export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
-  const [barkKey, setBarkKey] = useState("");
+  const [ntfyTopic, setNtfyTopic] = useState("");
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -32,14 +32,14 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
 
   useEffect(() => {
     if (open) {
-      setBarkKey(settingsService.getBarkKey());
+      setNtfyTopic(settingsService.getNtfyTopic());
       setTestResult(null);
     }
   }, [open]);
 
   const handleTestNotification = async () => {
-    if (!barkKey.trim()) {
-      setTestResult({ success: false, message: "请先输入 Bark Key" });
+    if (!ntfyTopic.trim()) {
+      setTestResult({ success: false, message: "请先输入 ntfy Topic" });
       return;
     }
 
@@ -48,7 +48,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
 
     try {
       const response = await api.post("/admin/test-notification", {
-        barkKey: normalizeBarkKey(barkKey.trim()),
+        ntfyTopic: normalizeNtfyTopic(ntfyTopic.trim()),
       });
 
       const data = response.data?.data;
@@ -56,7 +56,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
       if (data?.success) {
         setTestResult({
           success: true,
-          message: "通知发送成功，请检查您的手机",
+          message: "通知发送成功，请检查 ntfy 客户端",
         });
       } else {
         const errorMsg = data?.error || response.data?.message || "发送失败";
@@ -93,18 +93,18 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const normalizedKey = normalizeBarkKey(barkKey.trim());
+      const normalizedTopic = normalizeNtfyTopic(ntfyTopic.trim());
 
       // Save to localStorage
-      if (normalizedKey) {
-        settingsService.setBarkKey(normalizedKey);
+      if (normalizedTopic) {
+        settingsService.setNtfyTopic(normalizedTopic);
       } else {
-        settingsService.clearBarkKey();
+        settingsService.clearNtfyTopic();
       }
 
       // Save to backend
       try {
-        await api.post("/user/settings", { barkKey: normalizedKey });
+        await api.post("/user/settings", { ntfyTopic: normalizedTopic });
       } catch (error) {
         console.error("Failed to save settings to backend:", error);
       }
@@ -162,7 +162,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
         {/* Benefits Section */}
         <div className="p-5 sm:p-6">
           <h3 className="text-base font-semibold text-slate-800 mb-4">
-            绑定 Bark 后您可以：
+            绑定 ntfy 后您可以：
           </h3>
 
           <div className="space-y-3">
@@ -187,7 +187,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
             <BenefitItem
               icon={<Shield className="w-5 h-5" />}
               title="无需注册登录"
-              description="Bark Key 即您的唯一标识，简单安全"
+              description="ntfy Topic 即您的唯一标识，简单安全"
               color="text-purple-500"
             />
           </div>
@@ -195,24 +195,24 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
           {/* Divider */}
           <div className="my-5 border-t border-slate-200" />
 
-          {/* Bark Key Input */}
+          {/* ntfy Topic Input */}
           <div className="space-y-3">
             <label
-              htmlFor="barkKey"
+              htmlFor="ntfyTopic"
               className="flex items-center gap-2 text-sm font-semibold text-slate-700"
             >
               <Bell className="w-4 h-4 text-primary-500" />
-              输入您的 Bark Key
+              输入您的 ntfy Topic
             </label>
 
             <div className="relative">
               <input
-                id="barkKey"
+                id="ntfyTopic"
                 type="text"
-                placeholder="完整URL 或 设备Key"
-                value={barkKey}
+                placeholder="完整URL 或 topic"
+                value={ntfyTopic}
                 onChange={(e) => {
-                  setBarkKey(e.target.value);
+                  setNtfyTopic(e.target.value);
                   setTestResult(null);
                 }}
                 className="w-full px-4 py-3.5 border-2 rounded-xl text-sm
@@ -220,10 +220,10 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
                            focus:border-primary-400 focus:bg-primary-50/30
                            border-slate-200 bg-white hover:border-slate-300"
               />
-              {barkKey.trim() && (
+              {ntfyTopic.trim() && (
                 <button
                   onClick={() => {
-                    setBarkKey("");
+                    setNtfyTopic("");
                     setTestResult(null);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -239,7 +239,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
               <div>
                 <p className="font-medium text-slate-600">支持格式：</p>
                 <p className="text-slate-500">
-                  https://api.day.app/XXXXXX 或直接输入 XXXXXX
+                  https://ntfy.sh/your-topic 或直接输入 your-topic
                 </p>
               </div>
             </div>
@@ -299,7 +299,7 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
 
           <button
             onClick={handleTestNotification}
-            disabled={isTesting || isSaving || !barkKey.trim()}
+            disabled={isTesting || isSaving || !ntfyTopic.trim()}
             className="w-full sm:w-auto sm:flex-1 px-4 py-3 bg-white text-primary-600 rounded-xl font-semibold
                        border-2 border-primary-200 hover:bg-primary-50 hover:border-primary-300
                        disabled:opacity-40 disabled:cursor-not-allowed
@@ -346,13 +346,13 @@ export function WelcomeModal({ open, onClose, onComplete }: WelcomeModalProps) {
         {/* Help link */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
           <a
-            href="https://apps.apple.com/app/bark/id1403753865"
+            href="https://github.com/binwiederhier/ntfy"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-primary-500 transition-colors cursor-pointer"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            在 App Store 下载 Bark
+            查看 ntfy 使用说明
           </a>
         </div>
       </div>
@@ -385,8 +385,8 @@ function BenefitItem({
   );
 }
 
-// Normalize Bark key - extract device key from URL if needed
-function normalizeBarkKey(input: string): string {
+// Normalize ntfy topic - extract topic from URL if needed
+function normalizeNtfyTopic(input: string): string {
   const trimmed = input.trim();
   if (trimmed.startsWith("http")) {
     const parts = trimmed.split("/");

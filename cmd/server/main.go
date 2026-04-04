@@ -71,7 +71,7 @@ func main() {
 		productRepo,
 		masterProductRepo,
 		userSettingsRepo,
-		cfg.BarkURL,
+		cfg.NtfyURL,
 	)
 
 	tttClient := platform.NewTanTanTangClient(&cfg.Platforms.TanTanTang)

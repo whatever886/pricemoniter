@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -20,7 +21,7 @@ type NotificationService struct {
 	prodRepo         repository.ProductRepository
 	masterRepo       repository.MasterProductRepository
 	userSettingsRepo repository.UserSettingsRepository
-	barkURL          string
+	ntfyURL          string
 }
 
 // NewNotificationService creates a new notification service
@@ -29,14 +30,14 @@ func NewNotificationService(
 	prodRepo repository.ProductRepository,
 	masterRepo repository.MasterProductRepository,
 	userSettingsRepo repository.UserSettingsRepository,
-	barkURL string,
+	ntfyURL string,
 ) *NotificationService {
 	return &NotificationService{
 		notiRepo:         notiRepo,
 		prodRepo:         prodRepo,
 		masterRepo:       masterRepo,
 		userSettingsRepo: userSettingsRepo,
-		barkURL:          barkURL,
+		ntfyURL:          ntfyURL,
 	}
 }
 
@@ -107,7 +108,7 @@ func (s *NotificationService) checkAndNotifySingle(ctx context.Context, config *
 		return false
 	}
 
-	// Get user's Bark Key
+	// Get user's ntfy topic
 	userSettings, err := s.userSettingsRepo.Get(ctx, config.UserID)
 	if err != nil || userSettings == nil {
 		log.Error().Err(err).
@@ -142,12 +143,12 @@ func (s *NotificationService) checkAndNotifySingle(ctx context.Context, config *
 		return false
 	}
 
-	// Send notification using user's Bark Key
+	// Send notification using user's ntfy topic
 	return s.sendNotification(product, config.TargetPrice, userSettings.BarkKey)
 }
 
-// sendNotification sends a push notification
-func (s *NotificationService) sendNotification(product *notificationProduct, targetPrice float64, barkKey string) bool {
+// sendNotification sends a push notification via ntfy
+func (s *NotificationService) sendNotification(product *notificationProduct, targetPrice float64, ntfyTopicInput string) bool {
 	message := fmt.Sprintf("【%s %s ¥%.2f】%s",
 		product.Platform,
 		product.Region,
@@ -160,57 +161,62 @@ func (s *NotificationService) sendNotification(product *notificationProduct, tar
 		Str("message", message).
 		Msg("Sending price notification")
 
-	if barkKey == "" {
-		log.Info().Msg("Bark key not configured, skipping actual send")
+	if ntfyTopicInput == "" {
+		log.Info().Msg("ntfy topic not configured, skipping actual send")
 		return true
 	}
 
-	// Build Bark URL with user's bark key
-	barkBaseURL := s.barkURL
-	if barkBaseURL == "" {
-		barkBaseURL = "https://api.day.app"
+	ntfyBaseURL := s.ntfyURL
+	if ntfyBaseURL == "" {
+		ntfyBaseURL = "https://ntfy.sh"
 	}
 
-	// Normalize barkKey - extract device key from URL if needed
-	deviceKey := normalizeBarkKey(barkKey)
+	// Normalize topic - extract topic from full URL if needed
+	topic := normalizeNtfyTopic(ntfyTopicInput)
+	if topic == "" {
+		log.Error().Msg("ntfy topic is empty after normalization")
+		return false
+	}
 
-	// Send to Bark using HTTP client
-	encodedMsg := url.QueryEscape(message)
-	fullURL := fmt.Sprintf("%s/%s/%s?level=critical&volume=5", barkBaseURL, deviceKey, encodedMsg)
+	fullURL := strings.TrimRight(ntfyBaseURL, "/") + "/" + url.PathEscape(topic)
 
 	// Create HTTP request with timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fullURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, fullURL, bytes.NewBufferString(message))
 	if err != nil {
 		log.Error().Err(err).
 			Str("url", fullURL).
-			Msg("Failed to create bark request")
+			Msg("Failed to create ntfy request")
 		return false
 	}
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	req.Header.Set("Title", "价格提醒")
+	req.Header.Set("Priority", "5")
+	req.Header.Set("Tags", "money_with_wings")
 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error().Err(err).
 			Str("url", fullURL).
-			Msg("Failed to send bark notification")
+			Msg("Failed to send ntfy notification")
 		return false
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		log.Error().
 			Int("status", resp.StatusCode).
 			Str("url", fullURL).
-			Msg("Bark notification failed")
+			Msg("ntfy notification failed")
 		return false
 	}
 
 	log.Info().
 		Str("url", fullURL).
-		Msg("Bark notification sent successfully")
+		Msg("ntfy notification sent successfully")
 
 	return true
 }
@@ -277,14 +283,14 @@ func notificationPlatform(product *entity.MasterProduct) string {
 	return "探探糖"
 }
 
-// normalizeBarkKey extracts device key from full URL or returns key as-is
-func normalizeBarkKey(input string) string {
+// normalizeNtfyTopic extracts topic from full URL or returns topic as-is
+func normalizeNtfyTopic(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return ""
 	}
 
-	// If full URL, extract the last non-empty path segment as device key.
+	// If full URL, extract the last non-empty path segment as topic.
 	if strings.HasPrefix(strings.ToLower(input), "http") {
 		parsed, err := url.Parse(input)
 		if err == nil {
@@ -312,6 +318,11 @@ func normalizeBarkKey(input string) string {
 		return ""
 	}
 	return input
+}
+
+// normalizeBarkKey is kept as compatibility wrapper for existing tests/callers.
+func normalizeBarkKey(input string) string {
+	return normalizeNtfyTopic(input)
 }
 
 // GetByActivityID returns notification config for a product

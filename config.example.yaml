@@ -33,7 +33,7 @@ platforms:
     user_id: "test-placeholder"
     silk_id: "test-placeholder"
 
-bark_url: "https://api.day.app"
+ntfy_url: "https://ntfy.sh"
 
 cat > config.yaml <<'EOF'
 server:
@@ -70,6 +70,6 @@ platforms:
     user_id: ""
     silk_id: ""
 
-bark_url: "https://api.day.app"
+ntfy_url: "https://ntfy.sh"
 EOF
 

@@ -32,5 +32,5 @@ platforms:
     user_id: ""
     silk_id: ""
 
-bark_url: "https://api.day.app"
+ntfy_url: "https://ntfy.sh"
 

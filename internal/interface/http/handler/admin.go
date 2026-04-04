@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -89,39 +89,59 @@ func (h *SyncHandler) TestAPI(c echo.Context) error {
 }
 
 // TestNotification handles POST /api/admin/test-notification
-// Sends a test notification via Bark to verify the user's Bark key is valid
+// Sends a test notification via ntfy to verify the topic is valid
 func (h *SyncHandler) TestNotification(c echo.Context) error {
 	var params struct {
-		BarkKey string `json:"barkKey"`
+		NtfyTopic string `json:"ntfyTopic"`
+		BarkKey   string `json:"barkKey"` // backward compatibility
 	}
 
 	if err := c.Bind(&params); err != nil {
 		return c.JSON(http.StatusBadRequest, dto.Error(400, "Invalid request format"))
 	}
 
-	if params.BarkKey == "" {
-		return c.JSON(http.StatusBadRequest, dto.Error(400, "Bark key is required"))
+	topicInput := strings.TrimSpace(params.NtfyTopic)
+	if topicInput == "" {
+		topicInput = strings.TrimSpace(params.BarkKey)
 	}
 
-	// Build Bark URL
-	// User can provide either:
-	// 1. Full URL: https://api.day.app/XXXXXX
-	// 2. Device key only: XXXXXX
-	barkURL := strings.TrimSpace(params.BarkKey)
-	if !strings.HasPrefix(barkURL, "http") {
-		barkURL = fmt.Sprintf("https://api.day.app/%s", barkURL)
+	if topicInput == "" {
+		return c.JSON(http.StatusBadRequest, dto.Error(400, "ntfy topic is required"))
 	}
 
-	// Build notification URL with title and body
-	title := url.QueryEscape("测试通知")
-	body := url.QueryEscape("美食监控配置成功！您可以收到价格提醒了。")
-	fullURL := fmt.Sprintf("%s/%s/%s", barkURL, title, body)
+	// User can provide either full topic URL or topic name.
+	topic := normalizeAdminNtfyTopic(topicInput)
+	if topic == "" {
+		return c.JSON(http.StatusBadRequest, dto.Error(400, "invalid ntfy topic"))
+	}
 
-	log.Info().Str("barkURL", barkURL).Msg("Sending test notification")
+	baseURL := "https://ntfy.sh"
+	if strings.HasPrefix(strings.ToLower(topicInput), "http") {
+		if parsed, err := url.Parse(topicInput); err == nil {
+			baseURL = parsed.Scheme + "://" + parsed.Host
+		}
+	}
+
+	fullURL := strings.TrimRight(baseURL, "/") + "/" + url.PathEscape(topic)
+	body := "测试通知：美食监控配置成功！您可以收到价格提醒了。"
+
+	log.Info().Str("ntfyURL", fullURL).Msg("Sending test notification")
 
 	// Send test notification
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(fullURL)
+	req, err := http.NewRequest(http.MethodPost, fullURL, bytes.NewBufferString(body))
+	if err != nil {
+		return c.JSON(http.StatusOK, dto.Success(map[string]interface{}{
+			"success":  false,
+			"error":    err.Error(),
+			"testedAt": time.Now().Format("2006-01-02 15:04:05"),
+		}))
+	}
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	req.Header.Set("Title", "测试通知")
+	req.Header.Set("Priority", "5")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error().Err(err).Msg("Test notification request failed")
 		return c.JSON(http.StatusOK, dto.Success(map[string]interface{}{
@@ -132,7 +152,7 @@ func (h *SyncHandler) TestNotification(c echo.Context) error {
 	}
 	defer resp.Body.Close()
 
-	success := resp.StatusCode == 200
+	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	log.Info().Bool("success", success).Int("statusCode", resp.StatusCode).Msg("Test notification completed")
 
 	return c.JSON(http.StatusOK, dto.Success(map[string]interface{}{
@@ -140,4 +160,24 @@ func (h *SyncHandler) TestNotification(c echo.Context) error {
 		"statusCode": resp.StatusCode,
 		"testedAt":   time.Now().Format("2006-01-02 15:04:05"),
 	}))
+}
+
+func normalizeAdminNtfyTopic(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(strings.ToLower(trimmed), "http") {
+		if parsed, err := url.Parse(trimmed); err == nil {
+			path := strings.Trim(parsed.Path, "/")
+			if path == "" {
+				return ""
+			}
+			parts := strings.Split(path, "/")
+			return parts[len(parts)-1]
+		}
+	}
+
+	return trimmed
 }

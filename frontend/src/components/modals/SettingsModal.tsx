@@ -20,7 +20,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
-  const [barkKey, setBarkKey] = useState("");
+  const [ntfyTopic, setNtfyTopic] = useState("");
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -30,7 +30,7 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
 
   useEffect(() => {
     if (open) {
-      setBarkKey(settingsService.getBarkKey());
+      setNtfyTopic(settingsService.getNtfyTopic());
       setTestResult(null);
     }
   }, [open]);
@@ -38,24 +38,21 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const normalizedKey = barkKey.trim();
+      const normalizedTopic = ntfyTopic.trim();
 
-      // 1. Save to localStorage (for frontend use)
-      if (normalizedKey) {
-        settingsService.setBarkKey(normalizedKey);
+      if (normalizedTopic) {
+        settingsService.setNtfyTopic(normalizedTopic);
       } else {
-        settingsService.clearBarkKey();
+        settingsService.clearNtfyTopic();
       }
 
-      // 2. Save to backend (for background notifications)
       try {
-        await api.post("/user/settings", { barkKey: normalizedKey });
+        await api.post("/user/settings", { ntfyTopic: normalizedTopic });
       } catch (error) {
         console.error("Failed to save settings to backend:", error);
-        // Continue even if backend save fails - localStorage is the primary source
       }
 
-      onSave(normalizedKey ? "设置已保存" : "已清除 Bark Key");
+      onSave(normalizedTopic ? "设置已保存" : "已清除 ntfy Topic");
       onClose();
     } finally {
       setIsSaving(false);
@@ -63,8 +60,8 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
   };
 
   const handleTestNotification = async () => {
-    if (!barkKey.trim()) {
-      setTestResult({ success: false, message: "请先输入 Bark Key" });
+    if (!ntfyTopic.trim()) {
+      setTestResult({ success: false, message: "请先输入 ntfy Topic" });
       return;
     }
 
@@ -73,7 +70,7 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
 
     try {
       const response = await api.post("/admin/test-notification", {
-        barkKey: barkKey.trim(),
+        ntfyTopic: ntfyTopic.trim(),
       });
 
       const data = response.data?.data;
@@ -81,10 +78,9 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
       if (data?.success) {
         setTestResult({
           success: true,
-          message: "通知发送成功，请检查您的手机",
+          message: "通知发送成功，请检查 ntfy 客户端",
         });
       } else {
-        // Get detailed error from server response
         const errorMsg = data?.error || response.data?.message || "发送失败";
         setTestResult({
           success: false,
@@ -92,7 +88,6 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
         });
       }
     } catch (error: unknown) {
-      // Detailed error handling
       let errorMessage = "请求失败";
 
       if (error && typeof error === "object" && "response" in error) {
@@ -124,15 +119,12 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Modal */}
       <div
         className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scale-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="relative bg-gradient-to-br from-primary-600 via-primary-500 to-teal-500 px-5 py-5">
           <button
             onClick={onClose}
@@ -147,31 +139,29 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">通知设置</h2>
-              <p className="text-xs text-white/70">配置价格提醒推送</p>
+              <p className="text-xs text-white/70">配置 ntfy 价格提醒推送</p>
             </div>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-5 space-y-5">
-          {/* Bark Key Input */}
           <div className="space-y-2">
             <label
-              htmlFor="barkKey"
+              htmlFor="ntfyTopic"
               className="flex items-center gap-1.5 text-sm font-semibold text-slate-700"
             >
               <Smartphone className="w-4 h-4 text-primary-500" />
-              Bark 推送地址
+              ntfy 主题 / 地址
             </label>
 
             <div className="relative">
               <input
-                id="barkKey"
+                id="ntfyTopic"
                 type="text"
-                placeholder="输入完整URL或设备Key"
-                value={barkKey}
+                placeholder="输入主题名（如 kbfood-alert）或完整 URL"
+                value={ntfyTopic}
                 onChange={(e) => {
-                  setBarkKey(e.target.value);
+                  setNtfyTopic(e.target.value);
                   setTestResult(null);
                 }}
                 className="w-full px-4 py-3.5 border-2 rounded-xl text-sm
@@ -179,10 +169,10 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
                            focus:border-primary-400 focus:bg-primary-50/30
                            border-slate-200 bg-white hover:border-slate-300"
               />
-              {barkKey.trim() && (
+              {ntfyTopic.trim() && (
                 <button
                   onClick={() => {
-                    setBarkKey("");
+                    setNtfyTopic("");
                     setTestResult(null);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -192,20 +182,16 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
               )}
             </div>
 
-            {/* Format hint */}
             <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2.5">
               <HelpCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-medium text-slate-600">支持两种格式：</p>
-                <p className="text-slate-500">
-                  • 完整地址：https://api.day.app/XXXXXX
-                </p>
-                <p className="text-slate-500">• 设备 Key：XXXXXX</p>
+                <p className="text-slate-500">• 完整地址：https://ntfy.sh/your-topic</p>
+                <p className="text-slate-500">• 主题名：your-topic</p>
               </div>
             </div>
           </div>
 
-          {/* Test result feedback */}
           {testResult && (
             <div
               className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-300 ${
@@ -245,7 +231,6 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 bg-slate-50/80 border-t border-slate-100 flex gap-3">
           <button
             onClick={onClose}
@@ -259,7 +244,7 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
 
           <button
             onClick={handleTestNotification}
-            disabled={isTesting || isSaving || !barkKey.trim()}
+            disabled={isTesting || isSaving || !ntfyTopic.trim()}
             className="flex-1 px-4 py-3 bg-white text-primary-600 rounded-xl font-semibold
                        border-2 border-primary-200 hover:bg-primary-50 hover:border-primary-300
                        disabled:opacity-40 disabled:cursor-not-allowed
@@ -303,15 +288,14 @@ export function SettingsModal({ open, onClose, onSave }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Help link */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
           <a
-            href="https://apps.apple.com/app/bark/id1403753865"
+            href="https://github.com/binwiederhier/ntfy"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-primary-500 transition-colors cursor-pointer"
           >
-            <ExternalLink className="w-3.5 h-3.5" />在 App Store 下载 Bark
+            <ExternalLink className="w-3.5 h-3.5" />查看 ntfy 使用说明
           </a>
         </div>
       </div>

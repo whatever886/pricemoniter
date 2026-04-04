@@ -36,23 +36,29 @@ func (h *UserHandler) SaveSettings(c echo.Context) error {
 	}
 
 	var params struct {
-		BarkKey string `json:"barkKey"`
+		NtfyTopic string `json:"ntfyTopic"`
+		BarkKey   string `json:"barkKey"` // backward compatibility
 	}
 
 	if err := json.NewDecoder(c.Request().Body).Decode(&params); err != nil {
 		return c.JSON(http.StatusBadRequest, dto.Error(400, "Invalid request body"))
 	}
 
-	// Normalize Bark key - extract device key from URL if needed
-	barkKey := normalizeBarkKey(params.BarkKey)
+	// Normalize ntfy topic - extract topic from URL if needed
+	ntfyTopicInput := params.NtfyTopic
+	if strings.TrimSpace(ntfyTopicInput) == "" {
+		ntfyTopicInput = params.BarkKey
+	}
 
-	if barkKey == "" {
-		return c.JSON(http.StatusBadRequest, dto.Error(400, "Bark Key 不能为空"))
+	ntfyTopic := normalizeUserNtfyTopic(ntfyTopicInput)
+
+	if ntfyTopic == "" {
+		return c.JSON(http.StatusBadRequest, dto.Error(400, "ntfy Topic 不能为空"))
 	}
 
 	settings := &entity.UserSettings{
 		UserID:  userID,
-		BarkKey: barkKey,
+		BarkKey: ntfyTopic,
 	}
 
 	if err := h.userSettingsRepo.Upsert(ctx, settings); err != nil {
@@ -60,7 +66,8 @@ func (h *UserHandler) SaveSettings(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, dto.Success(map[string]string{
-		"barkKey": barkKey,
+		"ntfyTopic": ntfyTopic,
+		"barkKey":   ntfyTopic,
 	}))
 }
 
@@ -71,7 +78,8 @@ func (h *UserHandler) GetSettings(c echo.Context) error {
 
 	if userID == "" {
 		return c.JSON(http.StatusOK, dto.Success(map[string]string{
-			"barkKey": "",
+			"ntfyTopic": "",
+			"barkKey":   "",
 		}))
 	}
 
@@ -82,17 +90,19 @@ func (h *UserHandler) GetSettings(c echo.Context) error {
 
 	if settings == nil {
 		return c.JSON(http.StatusOK, dto.Success(map[string]string{
-			"barkKey": "",
+			"ntfyTopic": "",
+			"barkKey":   "",
 		}))
 	}
 
 	return c.JSON(http.StatusOK, dto.Success(map[string]string{
-		"barkKey": settings.BarkKey,
+		"ntfyTopic": settings.BarkKey,
+		"barkKey":   settings.BarkKey,
 	}))
 }
 
-// normalizeBarkKey extracts device key from full URL or returns key as-is
-func normalizeBarkKey(input string) string {
+// normalizeNtfyTopic extracts topic from full URL or returns topic as-is
+func normalizeUserNtfyTopic(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return ""
@@ -126,4 +136,9 @@ func normalizeBarkKey(input string) string {
 		return ""
 	}
 	return input
+}
+
+// normalizeBarkKey keeps compatibility with old callsites/tests.
+func normalizeBarkKey(input string) string {
+	return normalizeUserNtfyTopic(input)
 }

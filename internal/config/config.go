@@ -15,7 +15,8 @@ type Config struct {
 	Database  DatabaseConfig  `envconfig:"DB"`
 	Platforms PlatformsConfig `envconfig:"PLATFORM"`
 	Log       LogConfig       `envconfig:"LOG"`
-	BarkURL   string          `envconfig:"BARK_URL"`
+	NtfyURL   string          `envconfig:"NTFY_URL" mapstructure:"ntfy_url"`
+	BarkURL   string          `envconfig:"BARK_URL" mapstructure:"bark_url"` // deprecated compatibility
 }
 
 // ServerConfig holds HTTP server configuration
@@ -126,6 +127,7 @@ func Load(configPath string) (*Config, error) {
 		TantantangSK    string `envconfig:"PLATFORM_TANTANTANG_SECRET_KEY"`
 		TantantangURL   string `envconfig:"PLATFORM_TANTANTANG_BASE_URL"`
 		DTToken         string `envconfig:"PLATFORM_DT_TOKEN"`
+		NtfyURL         string `envconfig:"NTFY_URL"`
 		BarkURL         string `envconfig:"BARK_URL"`
 	}
 
@@ -156,8 +158,18 @@ func Load(configPath string) (*Config, error) {
 	if envCfg.DTToken != "" {
 		cfg.Platforms.DT.Token = envCfg.DTToken
 	}
+	if envCfg.NtfyURL != "" {
+		cfg.NtfyURL = envCfg.NtfyURL
+	}
 	if envCfg.BarkURL != "" {
 		cfg.BarkURL = envCfg.BarkURL
+		if cfg.NtfyURL == "" {
+			cfg.NtfyURL = envCfg.BarkURL
+		}
+	}
+
+	if cfg.NtfyURL == "" {
+		cfg.NtfyURL = cfg.BarkURL
 	}
 
 	// Validate
@@ -182,6 +194,9 @@ func setDefaults() {
 	// Log defaults
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "json")
+
+	// Notification defaults
+	viper.SetDefault("ntfy_url", "https://ntfy.sh")
 }
 
 func validate(cfg *Config) error {

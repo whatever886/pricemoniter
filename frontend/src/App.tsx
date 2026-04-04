@@ -67,10 +67,10 @@ function AppContent() {
   const { toast, hideToast } = useToast();
   const { data: systemStatus } = useSystemStatus();
 
-  // Check if user has Bark Key on mount
+  // Check if user has ntfy topic on mount
   useEffect(() => {
-    const barkKey = settingsService.getBarkKey();
-    if (!barkKey) {
+    const ntfyTopic = settingsService.getNtfyTopic();
+    if (!ntfyTopic) {
       // Small delay to let the app render first
       const timer = setTimeout(() => setIsWelcomeOpen(true), 500);
       return () => clearTimeout(timer);
